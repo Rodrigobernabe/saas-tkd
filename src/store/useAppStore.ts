@@ -100,6 +100,34 @@ interface AppState {
 
 const generateId = () => Math.random().toString(36).substring(2) + Date.now().toString(36);
 
+const STORAGE_KEY = 'taekwondo_saas_data';
+
+const saveToLocalStorage = (data: { 
+  alumnos?: Alumno[]; 
+  instructores?: Instructor[];
+  turnos?: Turno[];
+  grados?: Grado[];
+  cuotas?: Cuota[];
+  assistentecias?: Asistencia[];
+  liquidaciones?: Liquidacion[];
+  notificaciones?: Notificacion[];
+}) => {
+  const current = loadFromLocalStorage() || {};
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...current, ...data }));
+};
+
+const loadFromLocalStorage = () => {
+  try {
+    const data = localStorage.getItem(STORAGE_KEY);
+    if (data) {
+      return JSON.parse(data);
+    }
+  } catch (e) {
+    console.error('Error loading from localStorage:', e);
+  }
+  return null;
+};
+
 export const useAppStore = create<AppState>((set, get) => ({
   isLoading: true,
   isSupabaseConfigured: false,
@@ -122,8 +150,25 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ isSupabaseConfigured: configured });
     
     if (!configured) {
-      // Usar datos de ejemplo
-      set({
+      // Intentar cargar desde localStorage
+      const localData = loadFromLocalStorage();
+      if (localData) {
+        set({
+          ...localData,
+          notificaciones: localData.notificaciones || [
+            { id: 'n1', tipo: 'cuota_vencida', titulo: 'Cuotas Vencidas', mensaje: 'Hay 3 alumnos con cuota vencida', leida: false, fecha: new Date().toISOString().split('T')[0] },
+            { id: 'n2', tipo: 'cumpleanos', titulo: 'Cumpleaños', mensaje: 'Hoy es el cumpleaños de Alejandro Díaz', leida: false, fecha: new Date().toISOString().split('T')[0] },
+          ],
+          isLoading: false
+        });
+        return;
+      }
+      // Usar datos de ejemplo y guardarlos
+      const defaultNotificaciones: Notificacion[] = [
+        { id: 'n1', tipo: 'cuota_vencida', titulo: 'Cuotas Vencidas', mensaje: 'Hay 3 alumnos con cuota vencida', leida: false, fecha: new Date().toISOString().split('T')[0] },
+        { id: 'n2', tipo: 'cumpleanos', titulo: 'Cumpleaños', mensaje: 'Hoy es el cumpleaños de Alejandro Díaz', leida: false, fecha: new Date().toISOString().split('T')[0] },
+      ];
+      const initialData = {
         alumnos: exampleAlumnos,
         instructores: exampleInstructores,
         turnos: exampleTurnos,
@@ -131,12 +176,10 @@ export const useAppStore = create<AppState>((set, get) => ({
         cuotas: exampleCuotas,
         assistentecias: exampleAsistencias,
         liquidaciones: exampleLiquidaciones,
-        notificaciones: [
-          { id: 'n1', tipo: 'cuota_vencida', titulo: 'Cuotas Vencidas', mensaje: 'Hay 3 alumnos con cuota vencida', leida: false, fecha: new Date().toISOString().split('T')[0] },
-          { id: 'n2', tipo: 'cumpleanos', titulo: 'Cumpleaños', mensaje: 'Hoy es el cumpleaños de Alejandro Díaz', leida: false, fecha: new Date().toISOString().split('T')[0] },
-        ],
-        isLoading: false
-      });
+        notificaciones: defaultNotificaciones,
+      };
+      set({ ...initialData, isLoading: false });
+      saveToLocalStorage(initialData);
       return;
     }
 
@@ -182,33 +225,39 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   // CRUD Alumnos
   addAlumno: async (alumno) => {
-    const { isSupabaseConfigured } = get();
+    const { isSupabaseConfigured, alumnos } = get();
+    const newAlumno = { ...alumno, id: generateId() };
     if (isSupabaseConfigured) {
       const { data } = await supabase.from('alumnos').insert(alumno).select().single();
       if (data) set(state => ({ alumnos: [...state.alumnos, data] }));
     } else {
-      set(state => ({ alumnos: [...state.alumnos, { ...alumno, id: generateId() }] }));
+      set(state => ({ alumnos: [...state.alumnos, newAlumno] }));
+      saveToLocalStorage({ alumnos: [...alumnos, newAlumno] });
     }
   },
 
   updateAlumno: async (id, data) => {
-    const { isSupabaseConfigured } = get();
+    const { isSupabaseConfigured, alumnos } = get();
     if (isSupabaseConfigured) {
       await supabase.from('alumnos').update(data).eq('id', id);
     }
-    set(state => ({
-      alumnos: state.alumnos.map(a => a.id === id ? { ...a, ...data } : a)
-    }));
+    const updatedAlumnos = (arr: Alumno[]) => arr.map(a => a.id === id ? { ...a, ...data } : a);
+    set(state => ({ alumnos: updatedAlumnos(state.alumnos) }));
+    if (!isSupabaseConfigured) {
+      saveToLocalStorage({ alumnos: updatedAlumnos(alumnos) });
+    }
   },
 
   deleteAlumno: async (id) => {
-    const { isSupabaseConfigured } = get();
+    const { isSupabaseConfigured, alumnos } = get();
     if (isSupabaseConfigured) {
       await supabase.from('alumnos').delete().eq('id', id);
     }
-    set(state => ({
-      alumnos: state.alumnos.filter(a => a.id !== id)
-    }));
+    const filteredAlumnos = (arr: Alumno[]) => arr.filter(a => a.id !== id);
+    set(state => ({ alumnos: filteredAlumnos(state.alumnos) }));
+    if (!isSupabaseConfigured) {
+      saveToLocalStorage({ alumnos: filteredAlumnos(alumnos) });
+    }
   },
 
   // CRUD Instructores
@@ -244,33 +293,39 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   // CRUD Turnos
   addTurno: async (turno) => {
-    const { isSupabaseConfigured } = get();
+    const { isSupabaseConfigured, turnos } = get();
+    const newTurno = { ...turno, id: generateId() };
     if (isSupabaseConfigured) {
       const { data } = await supabase.from('turnos').insert(turno).select().single();
       if (data) set(state => ({ turnos: [...state.turnos, data] }));
     } else {
-      set(state => ({ turnos: [...state.turnos, { ...turno, id: generateId() }] }));
+      set(state => ({ turnos: [...state.turnos, newTurno] }));
+      saveToLocalStorage({ turnos: [...turnos, newTurno] });
     }
   },
 
   updateTurno: async (id, data) => {
-    const { isSupabaseConfigured } = get();
+    const { isSupabaseConfigured, turnos } = get();
     if (isSupabaseConfigured) {
       await supabase.from('turnos').update(data).eq('id', id);
     }
-    set(state => ({
-      turnos: state.turnos.map(t => t.id === id ? { ...t, ...data } : t)
-    }));
+    const updatedTurnos = (arr: Turno[]) => arr.map(turno => turno.id === id ? { ...turno, ...data } : turno);
+    set(state => ({ turnos: updatedTurnos(state.turnos) }));
+    if (!isSupabaseConfigured) {
+      saveToLocalStorage({ turnos: updatedTurnos(turnos) });
+    }
   },
 
   deleteTurno: async (id) => {
-    const { isSupabaseConfigured } = get();
+    const { isSupabaseConfigured, turnos } = get();
     if (isSupabaseConfigured) {
       await supabase.from('turnos').delete().eq('id', id);
     }
-    set(state => ({
-      turnos: state.turnos.filter(t => t.id !== id)
-    }));
+    const filteredTurnos = (arr: Turno[]) => arr.filter(turno => turno.id !== id);
+    set(state => ({ turnos: filteredTurnos(state.turnos) }));
+    if (!isSupabaseConfigured) {
+      saveToLocalStorage({ turnos: filteredTurnos(turnos) });
+    }
   },
 
   // CRUD Grados
