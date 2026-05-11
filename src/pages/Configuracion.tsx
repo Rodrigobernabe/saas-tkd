@@ -1,8 +1,8 @@
-import { useState } from 'react';
-import { Settings, Users, GraduationCap, CreditCard, Save } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { Settings, Users, GraduationCap, CreditCard, Save, Download, Upload, Database } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 
-type SeccionConfig = 'academia' | 'usuarios' | 'grades' | 'cuotas';
+type SeccionConfig = 'academia' | 'usuarios' | 'grades' | 'cuotas' | 'datos';
 
 export function Configuracion() {
   const [seccion, setSeccion] = useState<SeccionConfig>('academia');
@@ -27,12 +27,16 @@ export function Configuracion() {
         <button onClick={() => setSeccion('cuotas')} className={`px-4 py-2 rounded-lg ${seccion === 'cuotas' ? 'bg-taekwondo-primary text-white' : 'bg-white border border-gray-300'}`}>
           <CreditCard className="w-4 h-4 inline mr-2" />Cuotas
         </button>
+        <button onClick={() => setSeccion('datos')} className={`px-4 py-2 rounded-lg ${seccion === 'datos' ? 'bg-taekwondo-primary text-white' : 'bg-white border border-gray-300'}`}>
+          <Database className="w-4 h-4 inline mr-2" />Datos
+        </button>
       </div>
 
       {seccion === 'academia' && <ConfigAcademia />}
       {seccion === 'usuarios' && <ConfigUsuarios />}
       {seccion === 'grades' && <ConfigGrados />}
       {seccion === 'cuotas' && <ConfigCuotas />}
+      {seccion === 'datos' && <ConfigDatos />}
     </div>
   );
 }
@@ -91,6 +95,72 @@ function ConfigCuotas() {
         <div><label className="block text-sm font-medium text-gray-700 mb-1">Mínimo para descuento</label><input type="number" min="2" value={formData.cantidadMinimaGrupoFamiliar} onChange={e => setFormData({...formData, cantidadMinimaGrupoFamiliar: parseInt(e.target.value)})} className="w-full px-3 py-2 border border-gray-300 rounded-lg" /></div>
       </div>
       <div className="flex justify-end"><button className="btn-primary flex items-center gap-2"><Save className="w-4 h-4" />Guardar</button></div>
+    </div>
+  );
+}
+
+function ConfigDatos() {
+  const { exportData, importData } = useAppStore();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleExport = () => {
+    const json = exportData();
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `taekwondo-backup-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const json = event.target?.result as string;
+      await importData(json);
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  return (
+    <div className="card space-y-4">
+      <h2 className="font-display text-xl text-taekwondo-secondary">Gestión de Datos</h2>
+      <p className="text-gray-500 text-sm">
+        Los datos se guardan automáticamente en tu navegador. Aquí puedes hacer un backup o restaurar datos.
+      </p>
+      
+      <div className="flex flex-wrap gap-4">
+        <button onClick={handleExport} className="btn-primary flex items-center gap-2">
+          <Download className="w-4 h-4" />
+          Exportar Datos
+        </button>
+        <button onClick={handleImportClick} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2">
+          <Upload className="w-4 h-4" />
+          Importar Datos
+        </button>
+        <input 
+          ref={fileInputRef}
+          type="file" 
+          accept=".json" 
+          onChange={handleImport} 
+          className="hidden" 
+        />
+      </div>
+
+      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-4">
+        <p className="text-sm text-yellow-800">
+          <strong>Nota:</strong> Al importar datos, se reemplazarán todos los datos actuales. 
+          Haz un export primero si quieres mantener un backup.
+        </p>
+      </div>
     </div>
   );
 }

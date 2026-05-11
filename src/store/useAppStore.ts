@@ -96,6 +96,10 @@ interface AppState {
   getMargenAcademia: (mes: number, anio: number) => { ingreso: number; gasto: number; margen: number };
   getMontoCuota: (alumnoId: string) => { monto: number; tieneDescuentoFamiliar: boolean; montoOriginal: number };
   getNotificacionesNoLeidas: () => Notificacion[];
+  
+  // Export/Import
+  exportData: () => string;
+  importData: (jsonData: string) => Promise<boolean>;
 }
 
 const generateId = () => Math.random().toString(36).substring(2) + Date.now().toString(36);
@@ -657,4 +661,46 @@ try {
   },
 
   getNotificacionesNoLeidas: () => get().notificaciones.filter(n => !n.leida),
+
+  exportData: () => {
+    const { alumnos, instructores, turnos, grados, cuotas, assistentecias, liquidaciones, notificaciones, config } = get();
+    const data = { alumnos, instructores, turnos, grados, cuotas, assistentecias, liquidaciones, notificaciones, config, exportDate: new Date().toISOString() };
+    return JSON.stringify(data, null, 2);
+  },
+
+  importData: async (jsonData: string) => {
+    try {
+      const data = JSON.parse(jsonData);
+      if (!data.alumnos || !data.turnos) {
+        alert('Archivo JSON inválido. No contiene los datos esperados.');
+        return false;
+      }
+      set({
+        alumnos: data.alumnos || [],
+        instructores: data.instructores || [],
+        turnos: data.turnos || [],
+        grados: data.grados || [],
+        cuotas: data.cuotas || [],
+        assistentecias: data.assistentecias || [],
+        liquidaciones: data.liquidaciones || [],
+        notificaciones: data.notificaciones || [],
+        config: data.config || configAcademia,
+      });
+      saveToLocalStorage({
+        alumnos: data.alumnos,
+        instructores: data.instructores,
+        turnos: data.turnos,
+        grados: data.grados,
+        cuotas: data.cuotas,
+        assistentecias: data.assistentecias,
+        liquidaciones: data.liquidaciones,
+        notificaciones: data.notificaciones,
+      });
+      alert('Datos importados correctamente');
+      return true;
+    } catch (e) {
+      alert('Error al importar datos. Verifique el formato del archivo.');
+      return false;
+    }
+  },
 }));
