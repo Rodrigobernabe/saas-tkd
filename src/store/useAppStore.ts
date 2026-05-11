@@ -183,9 +183,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       return;
     }
 
-    try {
+try {
       // Fetch all data from Supabase in parallel
-      const [alumnosRes, instructoresRes, turnosRes, gradosRes, cuotasRes, asistenciasRes, liquidacionesRes, notificacionesRes] = await Promise.all([
+      const [alumnosRes, instructoresRes, turnosRes, gradosRes, cuotasRes, asistenciaRes, liquidacionesRes, notificacionesRes] = await Promise.all([
         supabase.from('alumnos').select('*').eq('activo', true),
         supabase.from('instructores').select('*').eq('activo', true),
         supabase.from('turnos').select('*').eq('activo', true),
@@ -196,21 +196,44 @@ export const useAppStore = create<AppState>((set, get) => ({
         supabase.from('notificaciones').select('*').order('created_at', { ascending: false }).limit(50)
       ]);
 
+      // Check if we got valid data or errors
+      if (alumnosRes.error || instructoresRes.error || turnosRes.error) {
+        console.warn('Supabase error, falling back to local data', { 
+          alumnosError: alumnosRes.error,
+          instructoresError: instructoresRes.error,
+          turnosError: turnosRes.error
+        });
+        throw new Error('Supabase connection failed');
+      }
+
       set({
         alumnos: alumnosRes.data || [],
         instructores: instructoresRes.data || [],
         turnos: turnosRes.data || [],
         grados: gradosRes.data || [],
         cuotas: cuotasRes.data || [],
-        assistentecias: asistenciasRes.data || [],
+        assistentecias: asistenciaRes.data || [],
         liquidaciones: liquidacionesRes.data || [],
         notificaciones: notificacionesRes.data || [],
         isLoading: false
       });
     } catch (error) {
       console.error('Error loading data from Supabase:', error);
+      // Try localStorage first
+      const localData = loadFromLocalStorage();
+      if (localData) {
+        set({
+          ...localData,
+          isLoading: false
+        });
+        return;
+      }
       // Fallback to example data
-      set({
+      const defaultNotificaciones: Notificacion[] = [
+        { id: 'n1', tipo: 'cuota_vencida', titulo: 'Cuotas Vencidas', mensaje: 'Hay 3 alumnos con cuota vencida', leida: false, fecha: new Date().toISOString().split('T')[0] },
+        { id: 'n2', tipo: 'cumpleanos', titulo: 'Cumpleaños', mensaje: 'Hoy es el cumpleaños de Alejandro Díaz', leida: false, fecha: new Date().toISOString().split('T')[0] },
+      ];
+      const fallbackData = {
         alumnos: exampleAlumnos,
         instructores: exampleInstructores,
         turnos: exampleTurnos,
@@ -218,8 +241,10 @@ export const useAppStore = create<AppState>((set, get) => ({
         cuotas: exampleCuotas,
         assistentecias: exampleAsistencias,
         liquidaciones: exampleLiquidaciones,
-        isLoading: false
-      });
+        notificaciones: defaultNotificaciones,
+      };
+      set({ ...fallbackData, isLoading: false });
+      saveToLocalStorage(fallbackData);
     }
   },
 
