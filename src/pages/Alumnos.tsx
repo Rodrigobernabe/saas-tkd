@@ -7,7 +7,7 @@ const formatCurrency = (value: number) =>
   new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(value);
 
 export function Alumnos() {
-  const { alumnos, turnos, grados, getCuotasByAlumno, addAlumno, updateAlumno } = useAppStore();
+  const { alumnos, turnos, grados, getCuotasByAlumno, addAlumno, updateAlumno, deleteAlumno } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingAlumno, setEditingAlumno] = useState<Alumno | null>(null);
@@ -44,6 +44,12 @@ export function Alumnos() {
 
   const handleChangeTurno = (alumnoId: string, nuevoTurnoId: string) => {
     updateAlumno(alumnoId, { turnoId: nuevoTurnoId });
+  };
+
+  const handleDeleteAlumno = (id: string) => {
+    if (confirm('¿Estás seguro de eliminar este alumno? Esta acción no se puede deshacer.')) {
+      deleteAlumno(id);
+    }
   };
 
   return (
@@ -165,14 +171,23 @@ export function Alumnos() {
                         <button
                           onClick={() => handleEditAlumno(alumno)}
                           className="p-2 text-gray-500 hover:text-taekwondo-primary hover:bg-gray-100 rounded"
+                          title="Editar"
                         >
                           <Edit2 className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => updateAlumno(alumno.id, { activo: !alumno.activo })}
-                          className={`p-2 rounded ${alumno.activo ? 'text-red-500 hover:bg-red-50' : 'text-green-500 hover:bg-green-50'}`}
+                          className={`p-2 rounded ${alumno.activo ? 'text-yellow-600 hover:bg-yellow-50' : 'text-green-500 hover:bg-green-50'}`}
+                          title={alumno.activo ? 'Desactivar' : 'Activar'}
                         >
                           {alumno.activo ? <Trash2 className="w-4 h-4" /> : <Check className="w-4 h-4" />}
+                        </button>
+                        <button
+                          onClick={() => handleDeleteAlumno(alumno.id)}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded"
+                          title="Eliminar permanentemente"
+                        >
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </td>

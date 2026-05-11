@@ -204,10 +204,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   deleteAlumno: async (id) => {
     const { isSupabaseConfigured } = get();
     if (isSupabaseConfigured) {
-      await supabase.from('alumnos').update({ activo: false }).eq('id', id);
+      await supabase.from('alumnos').delete().eq('id', id);
     }
     set(state => ({
-      alumnos: state.alumnos.map(a => a.id === id ? { ...a, activo: false } : a)
+      alumnos: state.alumnos.filter(a => a.id !== id)
     }));
   },
 
@@ -266,10 +266,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   deleteTurno: async (id) => {
     const { isSupabaseConfigured } = get();
     if (isSupabaseConfigured) {
-      await supabase.from('turnos').update({ activo: false }).eq('id', id);
+      await supabase.from('turnos').delete().eq('id', id);
     }
     set(state => ({
-      turnos: state.turnos.map(t => t.id === id ? { ...t, activo: false } : t)
+      turnos: state.turnos.filter(t => t.id !== id)
     }));
   },
 
