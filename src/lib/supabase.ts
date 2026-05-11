@@ -12,4 +12,15 @@ export const supabase = createClient(
   supabaseAnonKey || 'placeholder'
 );
 
-export const isConfigured = () => !!supabaseUrl && !!supabaseAnonKey;
+export const isConfigured = () => !!(supabaseUrl && supabaseAnonKey);
+
+// Función para verificar si Supabase está funcionando correctamente
+export const checkSupabaseConnection = async (): Promise<boolean> => {
+  if (!isConfigured()) return false;
+  try {
+    const { error } = await supabase.from('grados').select('id').limit(1);
+    return !error;
+  } catch {
+    return false;
+  }
+};

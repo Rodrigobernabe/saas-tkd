@@ -11,7 +11,7 @@ import {
   usuarioActual
 } from '../data/exampleData';
 import { liquidaciones as exampleLiquidaciones } from '../data/exampleData';
-import { supabase, isConfigured } from '../lib/supabase';
+import { supabase, isConfigured, checkSupabaseConnection } from '../lib/supabase';
 
 interface AppState {
   isLoading: boolean;
@@ -147,9 +147,10 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   initializeStore: async () => {
     const configured = isConfigured();
-    set({ isSupabaseConfigured: configured });
+    const isConnected = configured ? await checkSupabaseConnection() : false;
+    set({ isSupabaseConfigured: isConnected });
     
-    if (!configured) {
+    if (!isConnected) {
       // Intentar cargar desde localStorage
       const localData = loadFromLocalStorage();
       if (localData) {
